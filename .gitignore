@@ -1,0 +1,10 @@
+.env
+__pycache__/
+.ipynb_checkpoints/
+
+# Keep raw API responses and generated data out of Git
+data/raw/
+data/processed/
+
+.env
+test_gemini.py
