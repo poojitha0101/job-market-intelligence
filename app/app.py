@@ -19,10 +19,6 @@ REQUEST_TIMEOUT_MS = 30000
 
 st.set_page_config(page_title="India Data & AI Job Market Assistant", layout="centered")
 
-# ------------------------------------------------------------------ look and feel
-# Palette: Cloud white #F7F8FA (page), White #FFFFFF (cards), Mist #EEF2F6 (sidebar),
-# Ink navy #1B2A3A (text), Slate #5F6B7A (secondary text), Steel #D9E0E7 (lines),
-# Deep teal #0F766E (the only accent), Teal tint #E6F4F1 (user messages).
 st.markdown(
     """
 <style>
