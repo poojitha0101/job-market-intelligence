@@ -1,9 +1,28 @@
+# Secrets
 .env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Python
 __pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Notebooks
 .ipynb_checkpoints/
 
+# Raw and intermediate data that is not shipped with the app
 data/raw/
 data/processed/
 
-.env
+# Local scratch
 test_gemini.py
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

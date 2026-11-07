@@ -1,4 +1,5 @@
-streamlit
-pandas
-numpy
-google-genai
+streamlit>=1.40
+pandas>=2.0
+numpy>=1.24
+google-genai>=1.0
+python-dotenv>=1.0

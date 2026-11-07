@@ -1,177 +1,155 @@
-# India Data & AI Job Market Intelligence
+# India Data & AI Job Market Assistant
 
-An end-to-end data analytics project that explores job listings related to Data and AI in India using Python, SQL, Power BI, and a Retrieval-Augmented Generation (RAG) based AI assistant.
+A Streamlit chat app that answers questions about a sample of 784 Data and AI job listings in India, collected from the Adzuna API. Each answer points back to the listings it used.
 
-## Project Overview
+- Live app: https://india-job-market-assistant.streamlit.app/
+- Project overview (PDF): https://drive.google.com/file/d/1emgFfmqUzvZY93wY0g4QioUP4azlbtCj/view?usp=sharing
 
-Finding useful information in job listings can take time. This project explores a sample of job listings to understand the roles, companies, locations, and skills mentioned in job descriptions.
+## Executive summary
 
-The project combines a Power BI dashboard for exploring overall trends with an AI assistant that answers questions using relevant job listings.
+**Problem.** Job boards filter by keyword, but the questions a job seeker actually has are looser: which roles need both Python and SQL, what Power BI roles ask for, who is hiring analysts. Answering those means opening listings one at a time and reading descriptions.
 
-The data was collected through the Adzuna API.
+**Objective.** Let someone ask in plain English (or Telugu) and get a short answer that cites the specific listings behind it. When the listings do not contain the answer, the assistant says so instead of filling the gap.
 
-## Key Highlights
+**Scope.** The data is a sample, not the Indian job market. According to the project overview, 800 raw records were collected and 784 remained after removing duplicate job IDs. The assistant only sees the 8 closest listings per question, so it cannot count or rank across the sample. Totals and trends were meant for a Power BI dashboard described in the project overview.
 
-- Collected 800 raw job records using the Adzuna API.
-- Cleaned the data and removed duplicate job IDs, leaving 784 unique job listings.
-- Used Python and SQLite for data preparation and analysis.
-- Built an interactive Power BI dashboard with charts and slicers.
-- Developed an AI assistant using embeddings, RAG, and an LLM.
-- Deployed the AI assistant using Streamlit.
+**What this repository contains.** The assistant, its data files and its tests. The collection, cleaning, SQL and Power BI work described in the overview is not in this repository, and neither is the code that produced the embeddings (see [Limitations](#limitations)).
 
-## Technologies Used
+## Architecture and pipeline
 
-| Technology | Purpose |
+```
+question
+   |
+   |-- greeting or thanks? --> skip retrieval
+   v
+embed the question            Gemini embedding model, 768 dimensions
+   v
+cosine similarity             against data/job_embeddings.npy (784 x 768)
+   v
+top 8 listings                formatted as [Job 1] ... [Job 8]
+   v
+prompt                        system rules + last 6 messages + listings + question
+   v
+Gemini generation             streamed, falls back across models
+   v
+answer + "Jobs used"          only the [Job n] the answer cites
+```
+
+### Layout
+
+```
+app/
+  app.py                  Streamlit page and chat flow
+  job_assistant/
+    config.py             paths, model names, limits, environment overrides
+    retrieval.py          corpus loading, cosine search, small-talk check
+    listings.py           listing text for the prompt, citation lines for the UI
+    prompts.py            system prompt, prompt assembly, [[general]] marker
+    llm.py                Gemini client, query embedding, streaming with fallback
+  static/style.css        page styling
+data/
+  app_jobs.csv            784 listings: title, company, location, description
+  job_embeddings.npy      784 x 768 float32, same row order as the CSV
+tests/                    pytest suite (logic, data integrity)
+.streamlit/config.toml    theme
+.env.example              optional local configuration
+```
+
+`job_assistant` does not import Streamlit, and imports the Gemini SDK only inside the functions that call it, so the logic is testable without either installed.
+
+### Technology
+
+| Tool | Role | Why |
+|---|---|---|
+| Streamlit | Chat UI and hosting | One Python file per page, built-in chat widgets, free hosting for a portfolio project |
+| Gemini embeddings | Turn listings and questions into vectors | Same provider as the answer model, so one API key covers both |
+| NumPy | Similarity search | 784 vectors is one matrix-vector product; see decision 1 |
+| Gemini generation models | Write the answer from retrieved listings | Free tier lets visitors bring their own key |
+| pandas | Load and format the CSV | Listings are a small table |
+| pytest | Tests | Logic and data checks run in about a tenth of a second |
+
+## Quick start
+
+Requires Python 3.10 or newer and a free Gemini API key from https://aistudio.google.com/apikey.
+
+```bash
+git clone https://github.com/poojitha0101/job-market-intelligence.git
+cd job-market-intelligence
+
+python -m venv .venv
+source .venv/bin/activate          # Windows PowerShell: .venv\Scripts\Activate.ps1
+
+pip install -r requirements.txt
+streamlit run app/app.py
+```
+
+Paste the API key into the sidebar. The key lives in the browser session and is not stored.
+
+To avoid pasting it every time during local development:
+
+```bash
+cp .env.example .env               # then set GEMINI_API_KEY in .env
+```
+
+Run the tests:
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+### Configuration
+
+| Variable | Purpose |
 |---|---|
-| Python | Data processing and application development |
-| Pandas | Data cleaning and manipulation |
-| NumPy | Data processing |
-| SQLite | Storing and querying job data |
-| SQL | Analysing job roles, companies, locations, and skills |
-| Power BI | Interactive dashboard and visualisation |
-| Embeddings | Representing job listings as vectors |
-| RAG | Retrieving relevant listings before generating answers |
-| LLM | Generating answers from retrieved listings |
-| Streamlit | Building and deploying the AI assistant |
-| Git and GitHub | Version control and project hosting |
+| `GEMINI_API_KEY` | Used when the sidebar field is empty. Local use only: on a public deployment it would spend your quota for every visitor. |
+| `GEMINI_MODELS` | Comma-separated answer models, tried in order. Defaults are in `app/job_assistant/config.py`. |
 
-## Project Workflow
+Retrieval depth, history length, timeouts and retry counts are constants in `config.py`.
 
-### 1. Data Collection
+## Engineering decisions
 
-Collected 800 job records from the Adzuna API for analysis.
+1. **Brute-force search in NumPy, no vector database.** At 784 rows the search is a single matrix-vector product. A database would add a service to run and deploy without changing the result. The cost is that it does not scale: past tens of thousands of listings this needs an index.
 
-### 2. Data Cleaning
+2. **Listings are embedded ahead of time; only the question is embedded at runtime.** One embedding call per question, and startup is a file read. At 768 dimensions the vector file is 2.4 MB, small enough to commit next to the CSV. The constraint is that the question must use the same model and dimension as the stored vectors, which `tests/test_data.py` checks for dimension and normalisation.
 
-Used Python, Pandas, and NumPy to prepare the data and remove duplicate job IDs. After cleaning, 784 unique job listings remained.
+3. **Grounding through the prompt.** The system prompt tells the model to answer from the supplied listings only, cite `[Job n]`, say "in this sample", and decline to count or rank. This is cheap and works well, but it relies on the model following instructions. The "Jobs used" list shows which listings the answer cited; it does not check that those listings support the claim.
 
-### 3. Data Storage
+4. **Only the top 8 listings reach the model.** This keeps the prompt short and the answers focused. It also means questions like "how many jobs mention PySpark" cannot be answered here. The prompt tells the model to say so and point to the dashboard.
 
-Stored the prepared job data in a SQLite database for querying and analysis.
+5. **Small talk skips retrieval.** A whole-message regex catches greetings and thanks, which saves an embedding call and keeps unrelated listings out of the prompt. It is deliberately strict: "hi, which jobs need SQL?" is treated as a real question. New phrasings of small talk will go through retrieval until added to the pattern.
 
-### 4. SQL Analysis
+6. **Short follow-ups borrow the previous question for retrieval.** A message of six words or fewer, such as "and in Hyderabad?", is searched together with the last user question. This avoids a second model call to rewrite the query. It is wrong when the follow-up changes topic.
 
-Used SQL queries to explore:
+7. **Bring your own API key.** No server-side secret and no cost to the project owner. Visitors need a Google account to get a key, and quota errors are theirs.
 
-- Job roles and listing counts
-- Companies appearing in the collected listings
-- Locations mentioned in the data
-- Skills mentioned in job descriptions
+8. **Model fallback with bounded retries.** Each answer tries up to three models, two attempts each, with a 2 second pause. A rejected key fails immediately. A stream that breaks after text has started is not retried, since a retry would repeat text the reader has already seen. If every attempt fails, the last error is raised so the user sees a specific message (quota, busy) rather than a generic one. Worst case before giving up is roughly three minutes, from the 30 second request timeout.
 
-### 5. Power BI Dashboard
+9. **General questions are kept free of listing references.** For "what is RAG" the model is told to answer from general knowledge and start with `[[general]]`. The app strips that marker from the streamed text.
 
-Created an interactive dashboard to explore the collected job listings.
-
-The dashboard includes charts and slicers for exploring:
-
-- Job roles
-- Companies
-- Job locations
-- Skills mentioned in job descriptions
-
-Users can apply filters to explore different parts of the dataset.
-
-### 6. AI Job Assistant
-
-Built an AI assistant that allows users to ask questions about the collected job listings in natural language.
-
-The assistant uses embeddings to represent job listings and semantic search to find listings relevant to a user's question.
-
-The retrieved listings are passed to an LLM through a RAG workflow to generate an answer based on the available information.
-
-Example questions:
-
-- Which jobs need both Python and SQL?
-- Which jobs mention LLM or RAG?
-
-The assistant returns relevant answers with job references, such as `[Job 1]` and `[Job 2]`, so users can check the matching listings.
-
-## Dashboard vs AI Assistant
-
-**Power BI Dashboard**
-
-The dashboard is useful for comparing and exploring overall trends across the collected listings, including roles, companies, locations, and skills.
-
-**AI Job Assistant**
-
-The assistant is designed to answer questions about individual job listings by retrieving relevant matches from the collected data.
-
-Both components serve different purposes and are part of the same project.
-
-## Project Links
-
-- **Live AI Assistant:** https://india-job-market-assistant.streamlit.app/
-- **Project Overview PDF:** https://drive.google.com/file/d/1emgFfmqUzvZY93wY0g4QioUP4azlbtCj/view?usp=sharing
-- **GitHub Repository:** https://github.com/poojitha0101/job-market-intelligence
-
-## Running the Project Locally
-
-### Requirements
-
-- Python
-- Git
-- The project dependencies listed in `requirements.txt`
-
-### Setup
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/poojitha0101/job-market-intelligence.git
-   ```
-
-2. Move into the project directory:
-
-   ```bash
-   cd job-market-intelligence
-   ```
-
-3. Create a virtual environment:
-
-   ```bash
-   python -m venv .venv
-   ```
-
-4. Activate the environment.
-
-   **Windows:**
-
-   ```bash
-   .venv\Scripts\activate
-   ```
-
-5. Install the dependencies:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-6. Follow the application's entry-point and configuration instructions in the `app` and `.streamlit` folders to start the assistant.
-
-   The exact Streamlit command depends on the application's main Python file.
-
-### API Configuration
-
-The deployed assistant asks users to provide their own free LLM API key. The key is used for the session and is not saved by the application, as described in the project overview.
-
-Never commit API keys, passwords, or other secrets to GitHub.
+10. **Package inside `app/`.** Streamlit puts the script's folder on the import path, so `job_assistant` resolves without changing how the app is launched or deployed. The entry point is still `app/app.py`.
 
 ## Limitations
 
-- This project uses a sample of 784 unique Adzuna job listings. It does not represent the entire Indian job market.
-- Skill counts are based on keyword matching, so some mentions may be missed.
-- The AI assistant retrieves only the five closest matching listings for a question.
-- The assistant is not designed to count or rank all 784 listings. The Power BI dashboard is better suited for exploring overall counts and trends.
-- Some job descriptions are truncated, and salary information is missing for many listings.
+- **Sample, not market.** Answers describe 784 listings and say so.
+- **Truncated descriptions.** Descriptions are cut at about 500 characters (the longest in the file is exactly 500), so skills mentioned later in a posting are invisible to the assistant.
+- **Missing columns.** The shipped CSV has no listing URL and no role column. The "View listing" link and the "roles" figure in the header are supported by the code but never appear until those columns are added.
+- **Possible duplicates.** 70 rows repeat the title, company and location of another row. They may be separate postings. The CSV has no job ID, so this cannot be settled from the repository.
+- **Embeddings are not reproducible from this repo.** There is no embedding script, and the text embedded for each listing is not recorded. Loading checks that the row counts match, but cannot detect rows that were reordered or edited.
+- **No quality evaluation.** There is no labelled question set for retrieval hit rate or answer faithfulness. The tests cover logic with stubbed model calls, not model behaviour.
+- **UI untested.** The Streamlit page itself has no automated tests, and the default Gemini model names were carried over unchanged and not re-verified.
+- **Loose dependency bounds.** `requirements.txt` sets minimum versions only, with no lock file.
+- **Analysis not included.** Data collection, SQL analysis and the Power BI dashboard are not in this repository.
 
-## What I Learned
+### Next steps
 
-Through this project, I practised data collection, data cleaning, SQL analysis, dashboard development, semantic search, and integrating an LLM with retrieved data.
-
-It also helped me understand how traditional data analytics and AI-based question answering can work together in one application.
+- Add `scripts/build_embeddings.py`, record the exact text embedded per listing, and add job ID and URL columns to the CSV.
+- Build a set of 30 to 50 labelled questions and measure how often the right listing appears in the top 8.
+- Combine keyword and vector search, so exact terms such as tool names are not blurred by embeddings.
+- Answer count and ranking questions with fixed SQL queries over the SQLite data instead of redirecting to the dashboard.
+- Add a lock file and a CI job that runs `pytest`.
+- Add the collection, cleaning and SQL work under an `analysis/` folder so the repository matches the project overview.
 
 ## Author
 
-**Poojitha Nallamaru**
-
-This is a personal portfolio project built for learning and demonstrating practical skills in data analytics and AI.
+Poojitha Nallamaru. A personal portfolio project for practising data analytics and retrieval-based question answering.

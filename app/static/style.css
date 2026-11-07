@@ -1,0 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600&family=Source+Serif+4:wght@600&display=swap');
+:root {
+  --navy: #1B2A3A; --text: #1B2A3A; --muted: #5F6B7A;
+  --teal: #0F766E; --tint: #E6F4F1; --tint-line: #B7DDD6;
+  --page: #F7F8FA; --side: #EEF2F6; --line: #D9E0E7;
+}
+.stApp { background: var(--page); font-family: 'Source Sans 3', 'Noto Sans Telugu', 'Segoe UI', sans-serif; }
+#MainMenu, footer, [data-testid="stDecoration"], [data-testid="stToolbar"] { visibility: hidden; }
+[data-testid="stHeader"] { background: transparent; }
+[data-testid="stSidebar"] { background: var(--side); border-right: 1px solid var(--line); }
+[data-testid="stBottom"] > div { background: var(--page); }
+.block-container { max-width: 860px; padding-top: 2.4rem; }
+
+.stApp, .stApp p, .stApp li, .stApp label,
+.stApp [data-testid="stMarkdownContainer"] p { color: var(--text); }
+.stApp h2, .stApp h3 { color: var(--navy); font-weight: 600; }
+.stApp [data-testid="stCaptionContainer"] p { color: var(--muted); }
+.stApp a { color: var(--teal); }
+
+.stApp .hero h1 {
+  font-family: 'Source Serif 4', Georgia, serif; font-size: 2.1rem; font-weight: 600;
+  color: var(--navy); line-height: 1.2; margin: 0 0 0.6rem 0; padding: 0;
+}
+.stApp .hero p.lede { max-width: 62ch; color: var(--muted); font-size: 1.05rem; margin: 0 0 1.4rem 0; }
+.stats { display: flex; flex-wrap: wrap; border-top: 2px solid var(--teal); border-bottom: 1px solid var(--line); margin-bottom: 1.6rem; }
+.stat { flex: 1 1 110px; padding: 0.9rem 1rem 0.9rem 0; }
+.stat + .stat { border-left: 1px solid var(--line); padding-left: 1rem; }
+.stApp .hero .stat b { display: block; font-family: 'Source Serif 4', Georgia, serif; font-size: 1.7rem; font-weight: 600; color: var(--navy); }
+.stApp .hero .stat span { color: var(--muted); font-size: 0.9rem; }
+@media (max-width: 600px) { .stat + .stat { border-left: none; padding-left: 0; } }
+.stApp p.starter-label { color: var(--muted); font-size: 0.92rem; margin: 0 0 0.4rem 0; }
+
+[data-testid="stChatMessage"] { background: #FFFFFF; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) { background: var(--tint); border-color: var(--tint-line); }
+[data-testid="stChatMessageAvatarUser"] { background: var(--navy); }
+[data-testid="stChatMessageAvatarAssistant"] { background: var(--teal); }
+
+.stButton > button {
+  background: #FFFFFF; color: var(--teal); border: 1px solid var(--teal);
+  border-radius: 8px; font-weight: 500; text-align: left;
+}
+.stButton > button:hover { background: var(--tint); border-color: var(--teal); color: var(--teal); }
+.stButton > button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.stButton > button p { color: var(--teal); }
+
+[data-testid="stChatInput"] { border-radius: 10px; }
+.stApp [data-testid="stChatInput"]:focus-within { border-color: var(--teal) !important; box-shadow: none !important; }
+[data-testid="stExpander"] { background: #FFFFFF; border: 1px solid var(--line); border-radius: 10px; }
